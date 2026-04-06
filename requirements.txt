@@ -1,0 +1,6 @@
+streamlit
+pandas
+openpyxl
+qrcode[pil]
+jinja2
+weasyprint
