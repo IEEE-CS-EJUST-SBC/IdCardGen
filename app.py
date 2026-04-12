@@ -58,10 +58,6 @@ HTML_TEMPLATE = """
                     <div class="data-group"><label>Role</label><div class="val">{{ role }}</div></div>
                     <div class="data-group"><label>Volunteer ID</label><div class="val">{{ generated_id }}</div></div>
                 </div>
-                <div class="front-footer">
-                    <div class="signature-block"><div class="signature">{{ name }}</div><div class="signature-title">Branch Coordinator</div></div>
-                    <div class="logo-placeholder">LOGO ASSET HERE</div>
-                </div>
             </div>
         </div>
         <div class="crease"></div>
@@ -69,7 +65,6 @@ HTML_TEMPLATE = """
             <div class="society-title">IEEE COMPUTER SOCIETY</div>
             <div class="qr-wrapper"><img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Code"></div>
             <div class="back-heading">VOLUNTEER ID CARD</div>
-            <div class="terms-text">This non-transferable card identifies the named volunteer only. This card is valid for official local Branch activities through 31 December {{ valid_year }}.</div>
             <div class="back-footer">
                 <div class="back-footer-text">local.volunteers@ieee.org</div>
                 <div class="footer-placeholder">LOGO HERE</div>
@@ -82,12 +77,12 @@ HTML_TEMPLATE = """
 
 # ──────────────────────────── Logic ────────────────────────────
 COMMITTEE_MAP = {
-    "HR": 1, "PR": 2, "IT & Logistics": 3,
-    "Marketing": 4, "Media": 5, "Logistics": 6, "AI": 7
+    "AI": 1, "Cyber Security": 2, "Web": 3,
+    "Open Source": 4, "UI/UX": 5
 }
 
-def generate_custom_id(join_date: pd.Timestamp, committee: str, member_id: int) -> str:
-    yy = str(join_date.year)[-2:]                            
+def generate_custom_id(year: int, committee: str, member_id: int) -> str:
+    yy = str(year)[-2:]                            
     c = str(COMMITTEE_MAP.get(committee, 0))                
     iii = str(int(member_id)).zfill(3)                      
     return f"{yy}{c}{iii}"
@@ -107,31 +102,37 @@ def generate_qr_base64(full_name: str, custom_id: str, role: str) -> str:
 st.set_page_config(page_title="IEEE ID Generator", page_icon="🪪")
 
 st.title("🪪 Volunteer ID Card Generator")
-st.markdown("Upload the latest `volunteers.xlsx` file. The system will automatically find accepted members, generate their PDF cards, and provide a ZIP file containing the cards and the updated tracking sheets.")
+st.markdown("Upload an Excel file with volunteer information. The system will generate a PDF ID card for **every** row and provide a ZIP download.")
 
-uploaded_file = st.file_uploader("Upload volunteers.xlsx", type=["xlsx"])
-uploaded_archive = st.file_uploader("Upload processed_volunteers.xlsx (Optional, if it exists)", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload volunteers Excel file", type=["xlsx"])
 
 if uploaded_file is not None:
     if st.button("Generate Cards", type="primary"):
         with st.spinner("Processing data and rendering PDFs..."):
-            
+
             # Read Data
             df = pd.read_excel(uploaded_file, engine="openpyxl")
             df.columns = df.columns.str.strip()
-            
-            if 'Status' not in df.columns:
-                st.error("❌ 'Status' column not found in the Excel sheet.")
+
+            # Extract committee and year from filename (e.g. "AI_2027.xlsx" → committee="AI", year=2027)
+            import os
+            filename_no_ext = os.path.splitext(uploaded_file.name)[0].strip()
+            parts = filename_no_ext.rsplit("_", 1)
+            committee = parts[0].strip()
+            if len(parts) == 2 and parts[1].strip().isdigit():
+                year_str = parts[1].strip()
+                valid_year = int(year_str) if len(year_str) == 4 else int(f"20{year_str}")
+            else:
+                valid_year = datetime.now().year
+            st.info(f"📋 Committee: **{committee}** — Year: **{valid_year}**")
+
+            if df.empty:
+                st.info("ℹ️ The uploaded sheet is empty.")
                 st.stop()
 
-            # Filter
-            accepted_mask = df["Status"].astype(str).str.strip().str.lower() == "accepted"
-            accepted_df = df[accepted_mask].copy()
-            remaining_df = df[~accepted_mask].copy()
-
-            if accepted_df.empty:
-                st.info("ℹ️ No new 'Accepted' volunteers found in this sheet.")
-                st.stop()
+            # Create "Member ID" column if it doesn't exist
+            if "Member ID" not in df.columns:
+                df["Member ID"] = pd.NA
 
             # Setup Jinja Environment
             env = Environment(loader=DictLoader({'template': HTML_TEMPLATE}))
@@ -140,59 +141,48 @@ if uploaded_file is not None:
             # Create an in-memory ZIP file
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-                
+
                 # Process Cards
                 progress_bar = st.progress(0)
-                for idx, row in accepted_df.iterrows():
-                    first_name = str(row["First Name"]).strip()
-                    last_name = str(row["Last Name"]).strip()
-                    full_name = f"{first_name} {last_name}"
+                total = len(df)
+                for i, (idx, row) in enumerate(df.iterrows()):
+                    # Grab first three names from the "Name" column
+                    name_parts = str(row["Name"]).strip().split()
+                    full_name = " ".join(name_parts[:3])
+                    first_name = name_parts[0] if name_parts else "Unknown"
                     role = str(row["Role"]).strip()
-                    committee = str(row["Committee"]).strip()
-                    
-                    try:
-                        join_date = pd.to_datetime(row["Join Date"])
-                    except Exception:
-                        join_date = pd.to_datetime(datetime.now())
-                        
-                    member_id = int(row["Member ID"])
-                    custom_id = generate_custom_id(join_date, committee, member_id)
+
+                    # Auto-assign sequential member number (1-based)
+                    member_seq = i + 1
+                    custom_id = generate_custom_id(valid_year, committee, member_seq)
+
+                    # Write the generated ID back into the dataframe
+                    df.at[idx, "Member ID"] = custom_id
 
                     qr_b64 = generate_qr_base64(full_name, custom_id, role)
-                    
+
                     # Render HTML & Create PDF
                     rendered_html = template.render(
-                        name=full_name, role=role, committee=committee, 
-                        generated_id=custom_id, valid_year=datetime.now().year, qr_base64=qr_b64
+                        name=full_name, role=role, committee=committee,
+                        generated_id=custom_id, valid_year=valid_year, qr_base64=qr_b64
                     )
-                    
+
                     pdf_buffer = io.BytesIO()
                     weasyprint.HTML(string=rendered_html).write_pdf(pdf_buffer)
-                    
+
                     # Write PDF to ZIP
-                    zip_file.writestr(f"Cards/{custom_id}.pdf", pdf_buffer.getvalue())
-                    
+                    zip_file.writestr(f"Cards/{custom_id}_{first_name}.pdf", pdf_buffer.getvalue())
+
                     # Update Progress
-                    progress_bar.progress((list(accepted_df.index).index(idx) + 1) / len(accepted_df))
+                    progress_bar.progress((i + 1) / total)
 
-                # Handle Archives
-                if uploaded_archive is not None:
-                    existing_archive = pd.read_excel(uploaded_archive, engine="openpyxl")
-                    updated_archive = pd.concat([existing_archive, accepted_df], ignore_index=True)
-                else:
-                    updated_archive = accepted_df
+                # Write the updated Excel (with Member IDs) into the ZIP
+                excel_buffer = io.BytesIO()
+                df.to_excel(excel_buffer, index=False, engine="openpyxl")
+                zip_file.writestr("volunteers_with_ids.xlsx", excel_buffer.getvalue())
 
-                # Save updated DataFrames to Excel buffers
-                archive_buffer = io.BytesIO()
-                updated_archive.to_excel(archive_buffer, index=False, engine="openpyxl")
-                zip_file.writestr("processed_volunteers.xlsx", archive_buffer.getvalue())
+            st.success(f"✅ Successfully generated {total} ID cards!")
 
-                remaining_buffer = io.BytesIO()
-                remaining_df.to_excel(remaining_buffer, index=False, engine="openpyxl")
-                zip_file.writestr("volunteers.xlsx", remaining_buffer.getvalue())
-
-            st.success(f"✅ Successfully generated {len(accepted_df)} ID cards!")
-            
             # Download Button
             zip_buffer.seek(0)
             st.download_button(
