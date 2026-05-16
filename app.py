@@ -16,6 +16,10 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <style>
+        /* Hard resets — WeasyPrint uses these to flush the card to the page edge */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; padding: 0; }
+
 @font-face {
             font-family: "Montserrat";
             font-weight: 500;
