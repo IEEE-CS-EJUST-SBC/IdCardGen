@@ -196,17 +196,16 @@ HTML_TEMPLATE = """
               bottom: 100px;
               /* distance from bottom of left-section */
               left: 61px;
-              transform: scale(1.2);
-                    transform-origin: left center;
               /* slightly enlarges both data groups together */
               display: flex;
-              gap: 40px;
+              gap: 48px;
               /* horizontal space between Committee and Volunteer ID */
             }
         
             /* Small uppercase label above each value (e.g. "COMMITTEE") */
             .data-group .label {
-              font-size: 11px;
+              font-size: 13px;
+            white-space: nowrap;
               color: #75787B;
               text-transform: uppercase;
               font-weight: 700;
@@ -216,7 +215,7 @@ HTML_TEMPLATE = """
         
             /* The actual value text (e.g. "Cybersecurity", "26201") */
             .data-group .val {
-              font-size: 24px;
+              font-size: 29px;
               color: #002855;
               font-weight: 800;
             }
@@ -252,16 +251,14 @@ HTML_TEMPLATE = """
             .qr-wrapper {
               position: absolute;
               top: 60px;
-              left: 162px;
-              width: 200px;
-              height: 200px;
-              transform: scale(0.85);
-                    transform-origin: top left;
+              left: 175px;
+              width: 170px;
+              height: 170px;
               /* visually shrinks the QR box slightly */
               background: #fff;
               border: 2px solid #009CA6;
               border-radius: 10px;
-              padding: 16px;
+              padding: 14px;
               box-shadow: 0 6px 28px rgba(0, 98, 155, 0.22), 0 2px 8px rgba(0, 0, 0, 0.10);
             }
         
