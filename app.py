@@ -220,6 +220,7 @@ HTML_TEMPLATE = """
             /* The actual value text (e.g. "Cybersecurity", "26201") */
             .data-group .val {
               font-size: 29px;
+            white-space: nowrap;
               color: #002855;
               font-weight: 800;
             }
@@ -254,15 +255,15 @@ HTML_TEMPLATE = """
             /* Box that frames the QR code image */
             .qr-wrapper {
               position: absolute;
-              top: 85px;
-              left: 130px;
-              width: 240px;
-              height: 240px;
+              top: 55px;
+              left: 158px;
+              width: 210px;
+              height: 210px;
               /* visually shrinks the QR box slightly */
               background: #fff;
               border: 2px solid #009CA6;
               border-radius: 10px;
-              padding: 14px;
+              padding: 12px;
               box-shadow: 0 6px 28px rgba(0, 98, 155, 0.22), 0 2px 8px rgba(0, 0, 0, 0.10);
             }
         
