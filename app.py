@@ -254,15 +254,15 @@ HTML_TEMPLATE = """
             /* Box that frames the QR code image */
             .qr-wrapper {
               position: absolute;
-              top: 60px;
-              left: 162px;
-              width: 200px;
-              height: 200px;
+              top: 85px;
+              left: 130px;
+              width: 240px;
+              height: 240px;
               /* visually shrinks the QR box slightly */
               background: #fff;
               border: 2px solid #009CA6;
               border-radius: 10px;
-              padding: 16px;
+              padding: 14px;
               box-shadow: 0 6px 28px rgba(0, 98, 155, 0.22), 0 2px 8px rgba(0, 0, 0, 0.10);
             }
         
