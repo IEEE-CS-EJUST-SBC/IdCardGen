@@ -67,7 +67,7 @@ HTML_TEMPLATE = """
               overflow: hidden;
               /* clips anything that goes outside the card edges */
               background: #ffffff;
-              border: 1.5px solid #c8d8e8;
+              
               font-family: 'Montserrat', 'Segoe UI', sans-serif;
             }
         
@@ -255,14 +255,14 @@ HTML_TEMPLATE = """
             .qr-wrapper {
               position: absolute;
               top: 60px;
-              left: 175px;
-              width: 170px;
-              height: 170px;
+              left: 162px;
+              width: 200px;
+              height: 200px;
               /* visually shrinks the QR box slightly */
               background: #fff;
               border: 2px solid #009CA6;
               border-radius: 10px;
-              padding: 14px;
+              padding: 16px;
               box-shadow: 0 6px 28px rgba(0, 98, 155, 0.22), 0 2px 8px rgba(0, 0, 0, 0.10);
             }
         
