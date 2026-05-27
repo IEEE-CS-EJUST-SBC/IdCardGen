@@ -224,6 +224,14 @@ HTML_TEMPLATE = """
               color: #002855;
               font-weight: 800;
             }
+
+            /* Committee value when multiple committees are listed */
+            .data-group .val.multi-committee {
+              font-size: 16px;
+              white-space: normal;
+              line-height: 1.4;
+              max-width: 280px;
+            }
         
             /* ── RIGHT SECTION ───────────────────────────────────────────
                The 525 px-wide right half of the card.
@@ -246,7 +254,7 @@ HTML_TEMPLATE = """
               width: 330px;
               text-align: center;
               font-size: 28px;
-              font-weight: 650;
+              font-weight: 800;
               color: #00629B;
               letter-spacing: 0.5px;
               white-space: nowrap;
@@ -361,7 +369,7 @@ HTML_TEMPLATE = """
                   <div class="data-group">
                     <div class="label">COMMITTEE</div>
                     <!-- id="card-committee" updated by renderCard() -->
-                    <div class="val" id="card-committee">{{ committee }}</div>
+                    <div class="val{% if committees|length > 1 %} multi-committee{% endif %}" id="card-committee">{{ committees | join(' | ') }}</div>
                   </div>
 
                   <!-- Volunteer ID field -->
@@ -1132,7 +1140,8 @@ if uploaded_file is not None:
 
                 # ── Process Cards ──────────────────────────────────────────────
                 # Volunteers may belong to multiple committees (comma-separated).
-                # Each (volunteer, committee) pair gets its own ID and PDF card.
+                # Each volunteer gets ONE card listing ALL their committees.
+                # The ID is generated using the FIRST committee they belong to.
                 # committee_records accumulates rows for per-committee Excel sheets.
                 progress_bar = st.progress(0)
                 total = len(df)
@@ -1160,40 +1169,40 @@ if uploaded_file is not None:
                     national_id    = safe_col("National ID", row)
                     housing        = safe_col("Housing", row)
 
-                    row_ids = []
-                    for committee in committees:
-                        # Sequential ID scoped per committee
-                        committee_seq_counters[committee] = committee_seq_counters.get(committee, 0) + 1
-                        custom_id = generate_custom_id(valid_year, committee, committee_seq_counters[committee])
-                        row_ids.append(custom_id)
+                    # Use the first committee for the ID number
+                    primary_committee = committees[0]
+                    committee_seq_counters[primary_committee] = committee_seq_counters.get(primary_committee, 0) + 1
+                    custom_id = generate_custom_id(valid_year, primary_committee, committee_seq_counters[primary_committee])
 
-                        # Accumulate data for per-committee Excel sheet
+                    # Accumulate data for per-committee Excel sheet (one record per committee)
+                    for committee in committees:
                         record = row.to_dict()
                         record["Member ID"] = custom_id
                         # Drop the original committee column — redundant since sheet name shows it
                         record.pop(committee_col, None)
                         committee_records.setdefault(committee, []).append(record)
 
-                        # Generate QR & PDF card
-                        qr_b64 = generate_qr_base64(
-                            full_name, custom_id, email, phone,
-                            faculty, specialization, university_id,
-                            national_id, housing, committee
-                        )
-                        rendered_html = template.render(
-                            name=full_name, committee=committee,
-                            generated_id=custom_id, valid_year=valid_year, qr_base64=qr_b64
-                        )
-                        pdf_buffer = io.BytesIO()
-                        weasyprint.HTML(string=rendered_html).write_pdf(pdf_buffer)
-                        # PDFs live in per-committee subfolders
-                        zip_file.writestr(
-                            f"Cards/{sanitize_sheet_name(committee)}/{custom_id}_{first_name}.pdf",
-                            pdf_buffer.getvalue()
-                        )
-                        card_count += 1
+                    # Generate ONE QR & PDF card per person showing ALL their committees
+                    committees_str = ", ".join(committees)
+                    qr_b64 = generate_qr_base64(
+                        full_name, custom_id, email, phone,
+                        faculty, specialization, university_id,
+                        national_id, housing, committees_str
+                    )
+                    rendered_html = template.render(
+                        name=full_name, committees=committees,
+                        generated_id=custom_id, valid_year=valid_year, qr_base64=qr_b64
+                    )
+                    pdf_buffer = io.BytesIO()
+                    weasyprint.HTML(string=rendered_html).write_pdf(pdf_buffer)
+                    # PDF lives in a subfolder named after the primary committee
+                    zip_file.writestr(
+                        f"Cards/{sanitize_sheet_name(primary_committee)}/{custom_id}_{first_name}.pdf",
+                        pdf_buffer.getvalue()
+                    )
+                    card_count += 1
 
-                    all_ids_per_row[idx] = ", ".join(row_ids)
+                    all_ids_per_row[idx] = custom_id
                     progress_bar.progress((i + 1) / total)
 
                 # Write back all generated IDs to the summary dataframe
